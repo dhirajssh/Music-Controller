@@ -4,7 +4,8 @@ from rest_framework.views import APIView
 from requests import Request, post
 from rest_framework import status
 from rest_framework.response import Response
-from .util import update_or_create_user_tokens, is_spotify_authenticated
+from .util import *
+from api.models import Room
 
 # Create your views here.
 
@@ -20,12 +21,13 @@ class AuthURL(APIView):
 
     return Response({'url': url}, status=status.HTTP_200_OK)
 
+
 def spotify_callback(request, format=None):
   code = request.GET.get('code')
   error = request.GET.get('error')
 
   response = post('https://accounts.spotify.com/api/token', data={
-    'grant-type': 'authorization_code',
+    'grant_type': 'authorization_code',
     'code': code,
     'redirect_uri': REDIRECT_URI,
     'client_id': CLIENT_ID,
@@ -46,7 +48,24 @@ def spotify_callback(request, format=None):
   # using app_name assigned in urls.py django figures out what we are talking about
   return redirect('frontend:')
 
+
 class IsAuthenticated(APIView):
   def get(self, request, format=None):
     is_authenticated = is_spotify_authenticated(self.request.session.session_key)
     return Response({'status': is_authenticated}, status=status.HTTP_200_OK)
+
+
+class CurrentSong(APIView):
+  def get(self, request, format=None):
+    room_code = self.request.session.get('room_code')
+    room = Room.objects.filter(code=room_code)
+    if room.exists():
+      room = room[0]
+    else:
+      return Response({}, status=status.HTTP_404_NOT_FOUND)
+    host = room.host
+    endpoint = "player/currently-playing"
+    response = execute_spotify_api_requests(host, endpoint)
+    print(response)
+
+    return Response(response, status=status.HTTP_200_OK)
