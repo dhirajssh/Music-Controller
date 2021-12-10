@@ -94,18 +94,18 @@ class CurrentSong(APIView):
       'time': progress,
       'image_url': album_cover,
       'is_playing': is_playing,
-      'votes': 0,
+      'votes': votes,
       'votes_required': room.votes_to_skip,
       'id': song_id,
     }
-    seld.update_room_song(room, song_id)
+    self.update_room_song(room, song_id)
 
     return Response(song, status=status.HTTP_200_OK)
 
   def update_room_song(self, room, song_id):
     current_song = room.current_song
 
-    if current_song == song_id:
+    if current_song != song_id:
       room.current_song = song_id
       room.save(update_fields=['current_song'])
       votes = Vote.objects.filter(room=room).delete()
@@ -140,6 +140,7 @@ class SkipSong(APIView):
     votes_needed = room.votes_to_skip
 
     if self.request.session.session_key == room.host or len(votes) + 1 >= votes_needed:
+      votes.delete()
       skip_song(room.host)
     else:
       vote = Vote(user=self.request.session.session_key, room=room, song_id=room.current_song)
